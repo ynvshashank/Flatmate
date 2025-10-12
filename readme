@@ -1,0 +1,8 @@
+A todo list but a shared one, so multiple people can work on the items and keep track of it with each other.
+Initial idea:
+- a login page
+- add your flatmate or mates
+- create a common todo tasks for everyone 
+- can assign a specific task to someone , add reminders and deadlines to send notifications
+- customize notifications to be sent in interval times till the task is completed 
+- create a schedule for repeated tasks or daily tasks to keep track of them 
