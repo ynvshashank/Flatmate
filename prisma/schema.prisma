@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  password      String
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  createdTasks  Task[]         @relation("TaskCreator")
+  assignedTasks Task[]         @relation("TaskAssignee")
+  flatmates     Flatmate[]     @relation("UserMembers")
+  flatmateHouse FlatmateHouse? @relation("HouseCreator")
+
+  @@map("users")
+}
+
+model FlatmateHouse {
+  id          String      @id @default(cuid())
+  name        String
+  code        String      @unique // Invite code for the house
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  creatorId   String      @unique
+  creator     User        @relation("HouseCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  flatmates   Flatmate[]
+  tasks       Task[]
+  
+  @@map("flatmate_houses")
+}
+
+model Flatmate {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation("UserMembers", fields: [userId], references: [id], onDelete: Cascade)
+  houseId   String
+  house     FlatmateHouse  @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime       @default(now())
+  role      String         @default("member") // member, admin
+
+  // Ensure a user can only be in a house once
+  @@unique([userId, houseId])
+  @@map("flatmates")
+}
+
+model Task {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  priority    String          @default("medium") // low, medium, high
+  status      String          @default("pending") // pending, in_progress, completed
+  completed   Boolean         @default(false)
+  dueDate     DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Task assignment
+  assigneeId  String?
+  assignee    User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creatorId   String
+  creator     User            @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  // House relationship
+  houseId     String
+  house       FlatmateHouse   @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  
+  // Notifications
+  reminderEnabled Boolean      @default(false)
+  reminderInterval Int?        // Interval in hours
+  lastReminderSent DateTime?
+  
+  // Recurring task settings
+  isRecurring     Boolean       @default(false)
+  recurrencePattern String?     // e.g., "daily", "weekly", "monthly"
+  recurrenceEndDate DateTime?
+  parentTaskId   String?
+  parentTask     Task?          @relation("TaskRecurrence", fields: [parentTaskId], references: [id])
+  childTasks     Task[]         @relation("TaskRecurrence")
+
+  @@map("tasks")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // task_reminder, task_assigned, task_completed, etc.
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  taskId    String?
+  
+  @@map("notifications")
+}
+
