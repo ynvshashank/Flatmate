@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+
 import { 
   Plus, 
   Users, 
@@ -38,6 +41,9 @@ interface Flatmate {
 }
 
 export default function DashboardPage() {
+  const { data: session } = useSession()
+  const router = useRouter()
+
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: '1',
@@ -79,18 +85,42 @@ export default function DashboardPage() {
 
   const [showAddTask, setShowAddTask] = useState(false)
   const [showAddFlatmate, setShowAddFlatmate] = useState(false)
-  const [newTask, setNewTask] = useState({
+  const [newTask, setNewTask] = useState<{
+    title: string
+    description: string
+    assignedTo: string
+    dueDate: string
+    priority: 'low' | 'medium' | 'high'
+  }>({
     title: '',
     description: '',
     assignedTo: '',
     dueDate: '',
-    priority: 'medium' as const
+    priority: 'medium'
   })
 
   const [newFlatmate, setNewFlatmate] = useState({
     name: '',
     email: ''
   })
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch('/api/tasks?houseId=CURRENT_HOUSE_ID')
+        const data = await res.json()
+        if (data.tasks) {
+          setTasks(data.tasks)
+        }
+      } catch (error) {
+        console.error('Failed to fetch tasks:', error)
+      }
+    }
+    
+    if (session) {
+      fetchTasks()
+    }
+  }, [session])
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,6 +144,10 @@ export default function DashboardPage() {
     setFlatmates([...flatmates, flatmate])
     setNewFlatmate({ name: '', email: '' })
     setShowAddFlatmate(false)
+  }
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' })
   }
 
   const toggleTaskCompletion = (taskId: string) => {
@@ -146,7 +180,7 @@ export default function DashboardPage() {
             </Link>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome back!</span>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
             </div>

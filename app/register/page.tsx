@@ -7,8 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Home, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { toast } from 'react-hot-toast'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,14 +19,33 @@ export default function RegisterPage() {
     confirmPassword: '',
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match')
+      toast.error('Passwords do not match')
       return
     }
-    // TODO: Implement registration
-    console.log('Registration attempt:', formData)
+    
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      })
+    })
+    
+    const data = await res.json()
+    
+    if (res.ok) {
+      toast.success('Account created! Redirecting...')
+      router.push('/?registered=true')
+    } else {
+      console.error('Registration error:', data)
+      toast.error(data.error || data.message || 'Registration failed')
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

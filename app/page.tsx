@@ -7,15 +7,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Users, CheckSquare, Bell, Calendar, Home } from 'lucide-react'
 import Link from 'next/link'
+import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement authentication
-    console.log('Login attempt:', { email, password })
+    const result = await signIn('credentials', {
+      email,
+      password,
+      callbackUrl: '/dashboard',
+      redirect: false
+    })
+    
+    if (result?.error) {
+      alert('Login failed. Please check your credentials.')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
@@ -164,5 +177,9 @@ export default function HomePage() {
     </div>
   )
 }
+
+
+
+
 
 
