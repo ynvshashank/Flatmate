@@ -9,12 +9,15 @@ import { Home, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
+import { authApi, setAuthToken } from '@/lib/api'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   })
@@ -26,25 +29,33 @@ export default function RegisterPage() {
       toast.error('Passwords do not match')
       return
     }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
     
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      })
-    })
-    
-    const data = await res.json()
-    
-    if (res.ok) {
-      toast.success('Account created! Redirecting...')
-      router.push('/?registered=true')
-    } else {
-      console.error('Registration error:', data)
-      toast.error(data.error || data.message || 'Registration failed')
+    try {
+      const result = await authApi.register(
+        formData.name,
+        formData.email,
+        formData.password,
+        formData.phone || undefined
+      )
+      
+      if (result.error) {
+        toast.error(result.error)
+      } else if (result.data) {
+        setAuthToken(result.data.access_token)
+        toast.success('Account created successfully!')
+        router.push('/dashboard')
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -94,6 +105,7 @@ export default function RegisterPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
               
@@ -107,6 +119,20 @@ export default function RegisterPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone (Optional)</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="+1234567890"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
               
@@ -120,7 +146,10 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={handleChange}
                   required
+                  disabled={loading}
+                  minLength={6}
                 />
+                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
               </div>
               
               <div className="space-y-2">
@@ -133,11 +162,12 @@ export default function RegisterPage() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
               
-              <Button type="submit" className="w-full">
-                Create Account
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
               
               <div className="text-center">
@@ -155,15 +185,13 @@ export default function RegisterPage() {
             What you'll get:
           </h3>
           <div className="space-y-2 text-gray-600">
-            <p>✓ Create shared todo lists with your flatmates</p>
-            <p>✓ Assign tasks and set deadlines</p>
-            <p>✓ Get smart notifications and reminders</p>
-            <p>✓ Schedule recurring tasks</p>
+            <p>✓ Create and manage multiple houses</p>
+            <p>✓ Assign tasks to flatmates</p>
+            <p>✓ Track task history and completion</p>
+            <p>✓ Connect with flatmates globally</p>
           </div>
         </div>
       </main>
     </div>
   )
 }
-
-
