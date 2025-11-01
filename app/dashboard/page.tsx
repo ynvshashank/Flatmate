@@ -5,182 +5,222 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-
 import { 
-  Plus, 
-  Users, 
-  CheckSquare, 
-  Bell, 
-  Calendar, 
   Home,
+  Plus,
+  Search,
+  RefreshCw,
+  Users,
+  MoreVertical,
+  LogOut,
   UserPlus,
-  MoreHorizontal,
-  Clock,
-  AlertCircle
+  Trash2,
+  DoorOpen
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { getAuthToken, removeAuthToken, housesApi } from '@/lib/api'
+import { toast } from 'react-hot-toast'
 
-interface Task {
-  id: string
-  title: string
-  description: string
-  assignedTo: string
-  dueDate: string
-  priority: 'low' | 'medium' | 'high'
-  completed: boolean
-  createdAt: string
-}
-
-interface Flatmate {
+interface House {
   id: string
   name: string
-  email: string
-  avatar?: string
+  description?: string
+  members_count: number
+  created_at: string
+  is_creator: boolean
 }
 
 export default function DashboardPage() {
-  const { data: session } = useSession()
   const router = useRouter()
-
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Take out trash',
-      description: 'Empty all bins and take to collection point',
-      assignedTo: 'John Doe',
-      dueDate: '2024-01-15',
-      priority: 'medium',
-      completed: false,
-      createdAt: '2024-01-10'
-    },
-    {
-      id: '2',
-      title: 'Clean kitchen',
-      description: 'Wash dishes, clean countertops and stove',
-      assignedTo: 'Jane Smith',
-      dueDate: '2024-01-12',
-      priority: 'high',
-      completed: true,
-      createdAt: '2024-01-09'
-    },
-    {
-      id: '3',
-      title: 'Buy groceries',
-      description: 'Weekly shopping for shared items',
-      assignedTo: 'Mike Johnson',
-      dueDate: '2024-01-14',
-      priority: 'low',
-      completed: false,
-      createdAt: '2024-01-11'
-    }
-  ])
-
-  const [flatmates, setFlatmates] = useState<Flatmate[]>([
-    { id: '1', name: 'John Doe', email: 'john@example.com' },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com' },
-    { id: '3', name: 'Mike Johnson', email: 'mike@example.com' }
-  ])
-
-  const [showAddTask, setShowAddTask] = useState(false)
-  const [showAddFlatmate, setShowAddFlatmate] = useState(false)
-  const [newTask, setNewTask] = useState<{
-    title: string
-    description: string
-    assignedTo: string
-    dueDate: string
-    priority: 'low' | 'medium' | 'high'
-  }>({
-    title: '',
-    description: '',
-    assignedTo: '',
-    dueDate: '',
-    priority: 'medium'
-  })
-
-  const [newFlatmate, setNewFlatmate] = useState({
+  const [houses, setHouses] = useState<House[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showCreateHouse, setShowCreateHouse] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [selectedHouseForInvite, setSelectedHouseForInvite] = useState<string | null>(null)
+  const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  
+  const [newHouse, setNewHouse] = useState({
     name: '',
-    email: ''
+    description: ''
   })
+  
+  const [inviteEmail, setInviteEmail] = useState('')
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch('/api/tasks?houseId=CURRENT_HOUSE_ID')
-        const data = await res.json()
-        if (data.tasks) {
-          setTasks(data.tasks)
-        }
-      } catch (error) {
-        console.error('Failed to fetch tasks:', error)
+    const token = getAuthToken()
+    if (!token) {
+      router.push('/')
+      return
+    }
+    fetchHouses()
+  }, [router])
+
+  const fetchHouses = async () => {
+    setLoading(true)
+    try {
+      const result = await housesApi.getUserHouses()
+      if (result.error) {
+        toast.error(result.error)
+      } else if (result.data) {
+        setHouses(result.data)
       }
+    } catch (error) {
+      toast.error('Failed to fetch houses')
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const handleCreateHouse = async (e: React.FormEvent) => {
+    e.preventDefault()
     
-    if (session) {
-      fetchTasks()
+    if (!newHouse.name.trim()) {
+      toast.error('Please enter a house name')
+      return
     }
-  }, [session])
 
-  const handleAddTask = (e: React.FormEvent) => {
+    try {
+      const result = await housesApi.createHouse(newHouse.name, newHouse.description)
+      
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('House created successfully!')
+        setShowCreateHouse(false)
+        setNewHouse({ name: '', description: '' })
+        fetchHouses()
+      }
+    } catch (error) {
+      toast.error('Failed to create house')
+    }
+  }
+
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    const task: Task = {
-      id: Date.now().toString(),
-      ...newTask,
-      completed: false,
-      createdAt: new Date().toISOString().split('T')[0]
+    
+    if (!selectedHouseForInvite || !inviteEmail.trim()) {
+      toast.error('Please enter an email')
+      return
     }
-    setTasks([...tasks, task])
-    setNewTask({ title: '', description: '', assignedTo: '', dueDate: '', priority: 'medium' })
-    setShowAddTask(false)
-  }
 
-  const handleAddFlatmate = (e: React.FormEvent) => {
-    e.preventDefault()
-    const flatmate: Flatmate = {
-      id: Date.now().toString(),
-      ...newFlatmate
-    }
-    setFlatmates([...flatmates, flatmate])
-    setNewFlatmate({ name: '', email: '' })
-    setShowAddFlatmate(false)
-  }
-
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' })
-  }
-
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ))
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-red-600 bg-red-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'low': return 'text-green-600 bg-green-100'
-      default: return 'text-gray-600 bg-gray-100'
+    try {
+      const result = await housesApi.inviteToHouse(selectedHouseForInvite, inviteEmail)
+      
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Invitation sent successfully!')
+        setShowInviteModal(false)
+        setInviteEmail('')
+        setSelectedHouseForInvite(null)
+      }
+    } catch (error) {
+      toast.error('Failed to send invitation')
     }
   }
 
-  const pendingTasks = tasks.filter(task => !task.completed)
-  const completedTasks = tasks.filter(task => task.completed)
+  const handleExitHouse = async (houseId: string) => {
+    if (!confirm('Are you sure you want to exit this house?')) return
+
+    try {
+      const result = await housesApi.exitHouse(houseId)
+      
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Exited house successfully')
+        fetchHouses()
+      }
+    } catch (error) {
+      toast.error('Failed to exit house')
+    }
+  }
+
+  const handleDeleteHouse = async (houseId: string) => {
+    if (!confirm('Are you sure you want to delete this house? This action cannot be undone.')) return
+
+    try {
+      const result = await housesApi.deleteHouse(houseId)
+      
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('House deleted successfully')
+        fetchHouses()
+      }
+    } catch (error) {
+      toast.error('Failed to delete house')
+    }
+  }
+
+  const handleLogout = () => {
+    removeAuthToken()
+    toast.success('Logged out successfully')
+    router.push('/')
+  }
+
+  const filteredHouses = houses.filter(house =>
+    house.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <Link href="/" className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
               <Home className="h-8 w-8 text-primary-600" />
               <h1 className="text-2xl font-bold text-gray-900">Flatmate</h1>
-            </Link>
+            </div>
+            
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome back!</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              {/* Search */}
+              <div className="hidden md:flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
+                <Search className="h-4 w-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search houses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent border-none outline-none text-sm w-48"
+                />
+              </div>
+
+              {/* Sync */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={fetchHouses}
+                title="Refresh"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </Button>
+
+              {/* Navigation Links */}
+              <Link href="/connections">
+                <Button variant="ghost">
+                  Connections
+                </Button>
+              </Link>
+
+              <Link href="/settings">
+                <Button variant="ghost">
+                  Settings
+                </Button>
+              </Link>
+
+              {/* Create House */}
+              <Button onClick={() => setShowCreateHouse(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create House
+              </Button>
+
+              {/* Logout */}
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
             </div>
@@ -189,279 +229,185 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckSquare className="h-8 w-8 text-primary-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                  <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-yellow-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">{pendingTasks.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckSquare className="h-8 w-8 text-green-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Completed</p>
-                  <p className="text-2xl font-bold text-gray-900">{completedTasks.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-600" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Flatmates</p>
-                  <p className="text-2xl font-bold text-gray-900">{flatmates.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Page Title */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Houses</h2>
+          <p className="text-gray-600">Manage your shared living spaces</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Tasks Section */}
-          <div className="lg:col-span-2">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
-              <Button onClick={() => setShowAddTask(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Task
-              </Button>
-            </div>
+        {/* Mobile Search */}
+        <div className="md:hidden mb-6">
+          <div className="flex items-center space-x-2 bg-white rounded-lg px-3 py-2 border">
+            <Search className="h-4 w-4 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search houses..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 border-none outline-none text-sm"
+            />
+          </div>
+        </div>
 
-            {/* Pending Tasks */}
-            <div className="space-y-4 mb-8">
-              <h3 className="text-lg font-semibold text-gray-700">Pending Tasks</h3>
-              {pendingTasks.map(task => (
-                <Card key={task.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => toggleTaskCompletion(task.id)}
-                          className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{task.title}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                          <div className="flex items-center space-x-4 mt-2">
-                            <span className="text-sm text-gray-500">Assigned to: {task.assignedTo}</span>
-                            <span className="text-sm text-gray-500">Due: {task.dueDate}</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                              {task.priority}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading your houses...</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && houses.length === 0 && (
+          <div className="text-center py-12">
+            <Home className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No houses yet</h3>
+            <p className="text-gray-600 mb-6">Create your first house to get started</p>
+            <Button onClick={() => setShowCreateHouse(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First House
+            </Button>
+          </div>
+        )}
+
+        {/* Houses Grid */}
+        {!loading && filteredHouses.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredHouses.map((house) => (
+              <Card key={house.id} className="hover:shadow-lg transition-shadow relative">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl mb-1">{house.name}</CardTitle>
+                      {house.description && (
+                        <CardDescription>{house.description}</CardDescription>
+                      )}
+                    </div>
+                    
+                    {/* Menu */}
+                    <div className="relative">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setActiveMenu(activeMenu === house.id ? null : house.id)}
+                      >
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Completed Tasks */}
-            {completedTasks.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-700">Completed Tasks</h3>
-                {completedTasks.map(task => (
-                  <Card key={task.id} className="opacity-75 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={task.completed}
-                            onChange={() => toggleTaskCompletion(task.id)}
-                            className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 line-through">{task.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                            <div className="flex items-center space-x-4 mt-2">
-                              <span className="text-sm text-gray-500">Assigned to: {task.assignedTo}</span>
-                              <span className="text-sm text-gray-500">Due: {task.dueDate}</span>
-                            </div>
-                          </div>
+                      
+                      {activeMenu === house.id && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                          <button
+                            onClick={() => {
+                              setSelectedHouseForInvite(house.id)
+                              setShowInviteModal(true)
+                              setActiveMenu(null)
+                            }}
+                            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Invite Member
+                          </button>
+                          
+                          {!house.is_creator && (
+                            <button
+                              onClick={() => {
+                                handleExitHouse(house.id)
+                                setActiveMenu(null)
+                              }}
+                              className="w-full flex items-center px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50"
+                            >
+                              <DoorOpen className="h-4 w-4 mr-2" />
+                              Exit House
+                            </button>
+                          )}
+                          
+                          {house.is_creator && (
+                            <button
+                              onClick={() => {
+                                handleDeleteHouse(house.id)
+                                setActiveMenu(null)
+                              }}
+                              className="w-full flex items-center px-4 py-2 text-sm text-red-700 hover:bg-red-50 rounded-b-lg"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete House
+                            </button>
+                          )}
                         </div>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Flatmates */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Flatmates</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setShowAddFlatmate(true)}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {flatmates.map(flatmate => (
-                    <div key={flatmate.id} className="flex items-center space-x-3">
-                      <div className="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary-600">
-                          {flatmate.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{flatmate.name}</p>
-                        <p className="text-xs text-gray-500">{flatmate.email}</p>
-                      </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Set Reminder
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule Task
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  View Overdue
-                </Button>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="flex items-center text-gray-600 mb-4">
+                    <Users className="h-4 w-4 mr-2" />
+                    <span className="text-sm">{house.members_count} member{house.members_count !== 1 ? 's' : ''}</span>
+                  </div>
+                  
+                  <Link href={`/house/${house.id}`}>
+                    <Button className="w-full">
+                      View Tasks
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
+        )}
+
+        {/* No Search Results */}
+        {!loading && houses.length > 0 && filteredHouses.length === 0 && (
+          <div className="text-center py-12">
+            <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No houses found</h3>
+            <p className="text-gray-600">Try a different search term</p>
+          </div>
+        )}
       </main>
 
-      {/* Add Task Modal */}
-      {showAddTask && (
+      {/* Create House Modal */}
+      {showCreateHouse && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>Add New Task</CardTitle>
-              <CardDescription>Create a new task for your flatmates</CardDescription>
+              <CardTitle>Create New House</CardTitle>
+              <CardDescription>Set up a new shared living space</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddTask} className="space-y-4">
+              <form onSubmit={handleCreateHouse} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Task Title</Label>
+                  <Label htmlFor="houseName">House Name</Label>
                   <Input
-                    id="title"
-                    value={newTask.title}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Enter task title"
+                    id="houseName"
+                    value={newHouse.name}
+                    onChange={(e) => setNewHouse(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., My Apartment"
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="houseDescription">Description (Optional)</Label>
                   <Input
-                    id="description"
-                    value={newTask.description}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter task description"
+                    id="houseDescription"
+                    value={newHouse.description}
+                    onChange={(e) => setNewHouse(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add a description"
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="assignedTo">Assign To</Label>
-                  <select
-                    id="assignedTo"
-                    value={newTask.assignedTo}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, assignedTo: e.target.value }))}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                    required
-                  >
-                    <option value="">Select flatmate</option>
-                    {flatmates.map(flatmate => (
-                      <option key={flatmate.id} value={flatmate.name}>
-                        {flatmate.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="dueDate">Due Date</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <select
-                    id="priority"
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value as 'low' | 'medium' | 'high' }))}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
                 </div>
                 
                 <div className="flex space-x-2">
                   <Button type="submit" className="flex-1">
-                    Add Task
+                    Create House
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setShowAddTask(false)}
+                    onClick={() => {
+                      setShowCreateHouse(false)
+                      setNewHouse({ name: '', description: '' })
+                    }}
                     className="flex-1"
                   >
                     Cancel
@@ -473,47 +419,40 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Add Flatmate Modal */}
-      {showAddFlatmate && (
+      {/* Invite Modal */}
+      {showInviteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>Add Flatmate</CardTitle>
-              <CardDescription>Invite a new flatmate to join your space</CardDescription>
+              <CardTitle>Invite Member</CardTitle>
+              <CardDescription>Send an invitation to join this house</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddFlatmate} className="space-y-4">
+              <form onSubmit={handleInvite} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="flatmateName">Name</Label>
+                  <Label htmlFor="inviteEmail">Email Address</Label>
                   <Input
-                    id="flatmateName"
-                    value={newFlatmate.name}
-                    onChange={(e) => setNewFlatmate(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter flatmate name"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="flatmateEmail">Email</Label>
-                  <Input
-                    id="flatmateEmail"
+                    id="inviteEmail"
                     type="email"
-                    value={newFlatmate.email}
-                    onChange={(e) => setNewFlatmate(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter flatmate email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="flatmate@email.com"
                     required
                   />
                 </div>
                 
                 <div className="flex space-x-2">
                   <Button type="submit" className="flex-1">
-                    Add Flatmate
+                    Send Invitation
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setShowAddFlatmate(false)}
+                    onClick={() => {
+                      setShowInviteModal(false)
+                      setInviteEmail('')
+                      setSelectedHouseForInvite(null)
+                    }}
                     className="flex-1"
                   >
                     Cancel
@@ -527,5 +466,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
-

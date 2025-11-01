@@ -4,15 +4,14 @@ A collaborative todo list application designed for flatmates to manage shared ta
 
 ## Features
 
-- **User Authentication**: Secure login and registration system with bcrypt password hashing
-- **Flatmate Management**: Add and manage roommates in your shared space with invite codes
-- **Shared Todo Lists**: Create and manage tasks that everyone can see
-- **Task Assignment**: Assign specific tasks to individual flatmates
-- **Smart Notifications**: Customizable reminders with intervals (configuration ready)
-- **Scheduling**: Set up recurring tasks and deadlines
-- **Priority Levels**: Organize tasks by priority (low, medium, high)
-- **Progress Tracking**: Track completed and pending tasks
-- **RESTful API**: Complete backend API with proper authentication
+- **User Authentication**: Secure login and registration with JWT tokens
+- **House Management**: Create and manage multiple shared living spaces
+- **Task Management**: Create, edit, complete, and delete tasks with priorities and deadlines
+- **Connections**: Manage global connections across all houses
+- **Profile Settings**: Update profile information, change password, and view statistics
+- **Responsive Design**: Modern, clean UI that works on all devices
+- **Real-time Updates**: Live task status updates and notifications
+- **FastAPI Backend**: Complete FastAPI backend with SQLAlchemy ORM and SQLite/PostgreSQL support
 
 ## Tech Stack
 
@@ -24,41 +23,60 @@ A collaborative todo list application designed for flatmates to manage shared ta
 - **Icons**: Lucide React
 - **Forms**: React Hook Form with Zod validation
 - **Notifications**: React Hot Toast
-- **Auth**: NextAuth.js v4
+- **API Client**: Custom JWT-based authentication
 
 ### Backend
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: NextAuth.js (JWT-based)
-- **Password Hashing**: bcryptjs
-- **API**: RESTful API routes with Next.js API routes
+- **Framework**: FastAPI
+- **Language**: Python 3.8+
+- **Database**: SQLite (development) / PostgreSQL (production)
+- **ORM**: SQLAlchemy with Pydantic models
+- **Authentication**: JWT tokens with custom authentication
+- **Password Hashing**: PBKDF2-SHA256
+- **API**: RESTful API with automatic OpenAPI documentation
+- **CORS**: Configured for frontend integration
 
 ## Project Structure
 
 ```
 flatmate/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   │   ├── auth/         # Authentication endpoints
-│   │   ├── tasks/        # Task CRUD operations
-│   │   ├── houses/       # House/flat management
-│   │   └── flatmates/    # Flatmate management
-│   ├── dashboard/        # Dashboard page
-│   ├── register/         # Registration page
-│   ├── globals.css       # Global styles
-│   ├── layout.tsx        # Root layout
-│   └── page.tsx          # Home/login page
-├── components/            # Reusable components
-│   ├── ui/              # UI component library
-│   └── providers/       # React providers
+├── app/                    # Next.js frontend app directory
+│   ├── dashboard/         # Dashboard page (houses view)
+│   ├── register/          # Registration page
+│   ├── house/[id]/        # House page (tasks view)
+│   ├── connections/       # Connections page
+│   ├── settings/          # Settings page
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Home/login page
+├── components/            # Reusable React components
+│   └── ui/               # UI component library (buttons, cards, etc.)
 ├── lib/                  # Utility functions
-│   ├── prisma.ts        # Prisma client
-│   └── auth.ts          # NextAuth configuration
-├── prisma/              # Prisma schema
-│   └── schema.prisma    # Database schema
-├── types/               # TypeScript type definitions
-├── package.json         # Dependencies and scripts
-├── tailwind.config.js   # Tailwind configuration
+│   └── api.ts            # API client for FastAPI backend
+├── app/                  # FastAPI backend directory
+│   ├── main.py           # FastAPI app setup and routing
+│   ├── core/             # Core functionality
+│   │   ├── config.py     # Settings and configuration
+│   │   └── auth.py       # JWT authentication utilities
+│   ├── db/               # Database setup
+│   │   └── session.py    # Database session management
+│   ├── models/           # SQLAlchemy models
+│   │   ├── user.py       # User model
+│   │   ├── house.py      # House model
+│   │   ├── house_member.py # House membership model
+│   │   └── task.py       # Task model
+│   ├── api/              # API endpoints
+│   │   └── api_v1/
+│   │       ├── endpoints/ # API route handlers
+│   │       │   ├── auth.py    # Authentication endpoints
+│   │       │   ├── houses.py  # House management endpoints
+│   │       │   └── tasks.py   # Task management endpoints
+│   │       └── api.py    # API router setup
+│   └── deps.py           # Dependencies (auth middleware)
+├── requirements.txt      # Python dependencies
+├── init_db.py           # Database initialization script
+├── test_api.py          # API testing script
+├── package.json         # Node.js dependencies and scripts
+├── tailwind.config.js   # Tailwind CSS configuration
 └── tsconfig.json        # TypeScript configuration
 ```
 
@@ -67,12 +85,13 @@ flatmate/
 ### Prerequisites
 
 - **Node.js 18+** (Download from [nodejs.org](https://nodejs.org/))
-- **PostgreSQL** (Download from [postgresql.org](https://www.postgresql.org/download/))
-- **npm or yarn**
+- **Python 3.8+** (Download from [python.org](https://python.org/))
+- **PostgreSQL** (optional - SQLite works for development)
+- **npm or yarn** and **pip**
 
 ### Step-by-Step Setup
 
-#### 1. Clone and Install
+#### 1. Clone and Install Frontend Dependencies
 
 ```bash
 git clone https://github.com/ynvshashank/Flatmate.git
@@ -80,24 +99,24 @@ cd Flatmate
 npm install
 ```
 
-#### 2. Set Up PostgreSQL Database
+#### 2. Install Backend Dependencies
 
-If you don't have PostgreSQL installed, you can:
+```bash
+pip install -r requirements.txt
+```
 
-**Option A: Install PostgreSQL locally**
-1. Download from [PostgreSQL Downloads](https://www.postgresql.org/download/)
-2. Install it
-3. Create a new database:
-   ```bash
-   createdb flatmate_db
-   ```
+#### 3. Set Up the Database
 
-**Option B: Use a cloud database (Recommended for beginners)**
-- Sign up for [Supabase](https://supabase.com) (free tier available)
-- Create a new project
-- Copy the connection string from your project settings
+**Option A: SQLite (Recommended for development)**
+```bash
+python init_db.py
+```
+This creates a local SQLite database automatically.
 
-#### 3. Configure Environment Variables
+**Option B: PostgreSQL**
+If you prefer PostgreSQL, set up your database and update the `.env` file.
+
+#### 4. Configure Environment Variables
 
 Create a `.env` file in the root directory:
 
@@ -106,46 +125,44 @@ Create a `.env` file in the root directory:
 cp .env.example .env
 ```
 
-Edit `.env` and add your database URL:
+Edit `.env` with your settings:
 
 ```env
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/flatmate_db?schema=public"
-# Or use your Supabase connection string:
-# DATABASE_URL="postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres"
+# Database (SQLite for development, PostgreSQL for production)
+DATABASE_URL=sqlite:///./flatmate.db
 
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="generate-a-random-secret-key-here"
+# JWT Configuration
+SECRET_KEY=your-super-secret-jwt-key-here-change-this-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=43200
 
-# Node Environment
-NODE_ENV="development"
+# CORS Settings
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# Frontend API Base URL
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+# Environment
+ENVIRONMENT=development
 ```
 
-To generate a secret key for NextAuth:
+#### 5. Start Both Servers
+
+**Terminal 1 - Backend:**
 ```bash
-openssl rand -base64 32
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### 4. Set Up the Database
-
-```bash
-# Generate Prisma Client
-npm run db:generate
-
-# Push the schema to your database
-npm run db:push
-```
-
-This will create all the necessary tables in your database.
-
-#### 5. Run the Development Server
-
+**Terminal 2 - Frontend:**
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+#### 6. Access the Application
+
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:8000](http://localhost:8000)
+- **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Available Scripts
 
@@ -170,24 +187,27 @@ The application uses the following main entities:
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/[...nextauth]` - NextAuth authentication endpoints
+- `POST /auth/login` - User login with JWT token
+- `POST /auth/register` - User registration
 
 ### Houses
-- `GET /api/houses` - Get all houses for the current user
-- `POST /api/houses` - Create a new house
-- `GET /api/houses/[id]` - Get a specific house
-- `DELETE /api/houses/[id]` - Delete a house (creator only)
+- `GET /houses/user` - Get all houses for the current user
+- `POST /houses/create` - Create a new house
+- `POST /houses/exit` - Exit a house (non-creator only)
+- `DELETE /houses/delete` - Delete a house (creator only)
+- `POST /houses/invite` - Invite user to house
 
 ### Tasks
-- `GET /api/tasks?houseId=[id]` - Get all tasks for a house
-- `POST /api/tasks` - Create a new task
-- `GET /api/tasks/[id]` - Get a specific task
-- `PATCH /api/tasks/[id]` - Update a task
-- `DELETE /api/tasks/[id]` - Delete a task
+- `GET /tasks/today` - Get today's tasks for user's houses
+- `POST /tasks/create` - Create a new task
+- `PUT /tasks/update` - Update a task
+- `DELETE /tasks/delete` - Delete a task
+- `POST /tasks/complete` - Mark task as completed
 
-### Flatmates
-- `POST /api/flatmates` - Join a house (with code) or add a flatmate
+### API Documentation
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **OpenAPI JSON**: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
 
 ## Usage Guide
 
@@ -237,29 +257,58 @@ The application uses the following main entities:
 
 **Frontend to Backend Flow:**
 
-1. **User interacts** with UI (e.g., clicks "Add Task")
-2. **Frontend** makes a request to API route (e.g., `POST /api/tasks`)
-3. **API Route** validates authentication using `getServerSession`
-4. **Prisma ORM** interacts with PostgreSQL database
-5. **Database** stores/retrieves data
-6. **API** returns JSON response
-7. **Frontend** updates UI with new data
+1. **User interacts** with UI (e.g., clicks "Create House")
+2. **Frontend** calls API client (`lib/api.ts`) with JWT token
+3. **FastAPI** validates JWT token using dependency injection
+4. **SQLAlchemy ORM** interacts with SQLite/PostgreSQL database
+5. **Database** stores/retrieves data with proper relationships
+6. **FastAPI** returns JSON response with Pydantic models
+7. **Frontend** updates UI with new data and shows toast notifications
 
 ### Key Files to Understand
 
-- `prisma/schema.prisma` - Database structure and relationships
-- `lib/auth.ts` - Authentication configuration
-- `lib/prisma.ts` - Database client singleton
-- `app/api/tasks/route.ts` - Task CRUD operations
-- `app/dashboard/page.tsx` - Main dashboard UI (to be updated)
+**Backend:**
+- `app/main.py` - FastAPI app setup and CORS configuration
+- `app/core/auth.py` - JWT token creation and password hashing
+- `app/core/config.py` - Environment variables and settings
+- `app/models/user.py` - SQLAlchemy user model with relationships
+- `app/api/api_v1/endpoints/auth.py` - Authentication endpoints
+- `app/api/api_v1/endpoints/houses.py` - House management endpoints
+- `app/db/session.py` - Database session management
+
+**Frontend:**
+- `lib/api.ts` - API client with JWT token handling
+- `app/dashboard/page.tsx` - Main dashboard with house management
+- `app/page.tsx` - Login page with authentication
+- `components/ui/` - Reusable UI components
 
 ### Adding a New Feature
 
-1. **Update Database Schema** (`prisma/schema.prisma`)
-2. **Run** `npm run db:push`
-3. **Create API Route** (e.g., `app/api/your-feature/route.ts`)
-4. **Update Frontend** to call the new API
-5. **Test** your feature
+**Backend:**
+1. **Create/Update SQLAlchemy Model** (`app/models/`)
+2. **Add Pydantic Schemas** in endpoint files
+3. **Create API Endpoint** (`app/api/api_v1/endpoints/`)
+4. **Update Router** in `app/api/api_v1/api.py`
+5. **Test with** `test_api.py`
+
+**Frontend:**
+1. **Update API Client** (`lib/api.ts`)
+2. **Create/Update React Component**
+3. **Add Navigation** if needed
+4. **Test Integration** with backend
+
+### Testing
+
+```bash
+# Test backend API
+python test_api.py
+
+# Test frontend
+npm run dev
+
+# Test backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
 ## Common Issues
 
@@ -289,18 +338,187 @@ Run: `npm install`
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Next Steps for Developers
+## Current Implementation Status
 
-The frontend currently has mock data. To connect it to the backend:
+### ✅ Completed Features
 
-1. Update `app/dashboard/page.tsx` to use the API routes
-2. Implement session management for authentication
-3. Add error handling and loading states
-4. Implement the notification system
-5. Add recurring task functionality
+**Core Pages:**
+- **Login/Register Pages**: Full FastAPI integration with JWT token management
+- **Dashboard (Houses View)**: Complete house management with create, invite, exit, and delete functionality
+- **House Page (Tasks View)**: Full task management with create, edit, complete, and delete operations
+- **Connections Page**: Global connection management with invite/accept/block functionality
+- **Settings Page**: Profile management, password change, and account deletion
+
+**Technical Implementation:**
+- **FastAPI Integration**: Complete API client with proper error handling and token management
+- **Responsive Design**: Modern UI using Tailwind CSS with consistent theming
+- **Authentication Flow**: JWT-based authentication with automatic token refresh
+- **Navigation**: Seamless navigation between all pages with proper state management
+- **Error Handling**: Comprehensive error handling with user-friendly toast notifications
+- **Loading States**: Proper loading indicators throughout the application
+
+### 🔄 Ready for Backend Connection
+
+The frontend is fully prepared to connect to your FastAPI backend. Simply:
+
+1. **Set Environment Variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your FastAPI backend URL
+   NEXT_PUBLIC_API_BASE_URL=https://your-fastapi-url
+   ```
+
+2. **Update API Endpoints**: The API client in `lib/api.ts` is already configured with the correct endpoints matching your FastAPI backend structure.
+
+3. **Test the Integration**: All pages will automatically use real API calls instead of mock data.
+
+### 📱 Pages Overview
+
+- **Home (`/`)**: Landing page with login form and feature showcase
+- **Register (`/register`)**: User registration with validation
+- **Dashboard (`/dashboard`)**: Houses overview with management options
+- **House (`/house/[id]`)**: Task management for specific houses
+- **Connections (`/connections`)**: Global connection management
+- **Settings (`/settings`)**: User profile and account management
+
+### 🎨 Design Features
+
+- **Modern UI**: Clean, Notion-inspired design with neutral colors and rounded edges
+- **Responsive**: Works perfectly on desktop, tablet, and mobile devices
+- **Consistent Theming**: Primary/secondary color scheme throughout
+- **Interactive Elements**: Hover effects, smooth transitions, and intuitive UX
+- **Accessibility**: Proper labels, focus states, and keyboard navigation
+
+## 🚀 Version 2.0.0 - Major Architecture Overhaul
+
+### What Changed in v2.0.0
+
+**Complete Backend Rewrite:**
+- **Removed**: Next.js API routes with Prisma ORM
+- **Added**: Full FastAPI backend with SQLAlchemy ORM
+- **Database**: SQLite (dev) / PostgreSQL (prod) support
+- **Authentication**: Custom JWT implementation replacing NextAuth.js
+
+**Key Improvements:**
+- ✅ **Performance**: FastAPI is significantly faster than Next.js API routes
+- ✅ **Scalability**: SQLAlchemy handles complex queries better than Prisma
+- ✅ **Type Safety**: Pydantic models provide better type validation
+- ✅ **Documentation**: Automatic OpenAPI/Swagger documentation
+- ✅ **Database Flexibility**: Easy switching between SQLite/PostgreSQL
+- ✅ **Clean Architecture**: Separation of concerns with proper layering
+
+**Migration Guide:**
+```bash
+# Old setup (v1.x)
+npm install
+npm run db:generate
+npm run db:push
+npm run dev
+
+# New setup (v2.0+)
+npm install
+pip install -r requirements.txt
+python init_db.py
+# Terminal 1: python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Terminal 2: npm run dev
+```
+
+**Breaking Changes:**
+- Environment variables updated (see `.env.example`)
+- API endpoints changed from `/api/*` to direct paths (`/auth/*`, `/houses/*`)
+- Database schema migrated from Prisma to SQLAlchemy
+- Authentication system completely rewritten
+
+**New Features in v2.0:**
+- JWT token-based authentication
+- Automatic API documentation at `/docs`
+- Comprehensive test suite (`test_api.py`)
+- Better error handling and validation
+- CORS properly configured for frontend integration
+
+### 📋 Detailed Changes in v2.0.0
+
+#### 🗑️ Files Removed
+**Development Documentation:**
+- `BACKEND_IMPLEMENTATION_STATUS.md`
+- `COMPLETE_EXPLANATION.md`
+- `DEVELOPMENT.md`
+- `FASTAPI_BACKEND_GUIDE.md`
+- `FRONTEND_STATUS.md`
+- `IMPLEMENTATION_SUMMARY.md`
+- `SETUP_INSTRUCTIONS.md`
+- `readme` (duplicate lowercase file)
+
+**Old Architecture Files:**
+- `backend_setup.py` (initial setup script)
+- `frontend.env` (redundant environment file)
+- `prisma/` (entire directory - Prisma ORM no longer used)
+- `app/api/auth/[...nextauth]/` (NextAuth API routes)
+
+#### 📝 Files Updated
+**Frontend:**
+- `lib/api.ts` - Updated API client for FastAPI endpoints
+- `app/layout.tsx` - Removed NextAuth session provider
+- `app/page.tsx` - Updated login form for new authentication
+- `package.json` - Removed NextAuth/Prisma deps, updated scripts, version to 2.0.0
+
+**Backend (New):**
+- `app/main.py` - FastAPI app with CORS and routing
+- `app/core/auth.py` - JWT token utilities
+- `app/core/config.py` - Environment configuration
+- `app/models/user.py` - SQLAlchemy user model
+- `app/models/house.py` - House model with relationships
+- `app/models/house_member.py` - Membership relationships
+- `app/models/task.py` - Task model
+- `app/api/api_v1/endpoints/auth.py` - Authentication endpoints
+- `app/api/api_v1/endpoints/houses.py` - House management
+- `app/api/api_v1/endpoints/tasks.py` - Task management
+- `app/db/session.py` - Database session management
+
+**Configuration:**
+- `.gitignore` - Added Python, database, and IDE exclusions
+- `.env.example` - Updated for FastAPI environment variables
+- `README.md` - Complete rewrite with new architecture docs
+
+#### ➕ Files Added
+**Backend Infrastructure:**
+- `requirements.txt` - Python dependencies
+- `init_db.py` - Database initialization script
+- `test_api.py` - Comprehensive API testing suite
+- `app/__init__.py` - Python package initialization
+- `app/api/__init__.py` - API package setup
+- `app/api/api_v1/__init__.py` - API version setup
+- `app/core/__init__.py` - Core package setup
+- `app/db/__init__.py` - Database package setup
+- `app/models/__init__.py` - Models package with imports
+
+#### 🔄 Dependencies Changes
+**Removed from package.json:**
+- `next-auth` - Replaced with custom JWT
+- `@prisma/client` - Replaced with SQLAlchemy
+- `prisma` (dev) - ORM replaced
+- `@types/bcryptjs` - No longer needed
+- `bcryptjs` - Replaced with server-side hashing
+
+**Added to requirements.txt:**
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `sqlalchemy` - ORM
+- `alembic` - Database migrations
+- `python-jose[cryptography]` - JWT handling
+- `passlib[bcrypt]` - Password hashing
+- `python-multipart` - Form data handling
+- `requests` - HTTP client for testing
+
+#### 🏗️ Architecture Changes
+**From:** Next.js API Routes + Prisma + NextAuth
+**To:** FastAPI + SQLAlchemy + Custom JWT
+
+**Database:** Prisma schema → SQLAlchemy models
+**Authentication:** NextAuth.js → Custom JWT tokens
+**API:** RESTful endpoints with automatic OpenAPI docs
+**Testing:** Basic API tests → Comprehensive test suite
 
 ---
 
 Made with ❤️ for organized living
-
-
